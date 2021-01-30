@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -18,9 +17,10 @@ import (
 
 type with struct {
 	Do          bool
-	Auth        bool
-	Client      bool
+	Token       bool
+	Config      bool
 	Endpoint    bool
+	Client      bool
 	RateLimiter bool
 	Flags       string
 	Package     string
@@ -55,10 +55,12 @@ type Option func(*Client) error
 func NewClient(opts ...Option) (*Client, error) {
 	c := &Client{
 		client: &http.Client{},
-	{{- if .Auth}}
+	{{if .Token}}
 		token:  oauth2.Token{},
+	{{end}}
+	{{if .Config}}
 		config: oauth2.Config{
-	{{- if .Endpoint}}
+	{{if .Endpoint}}
 			Endpoint: Endpoint,
 	{{end}}
 		},
@@ -74,7 +76,7 @@ func NewClient(opts ...Option) (*Client, error) {
 }
 {{end}}
 
-{{if .Auth}}
+{{if .Config}}
 // WithConfig sets the underlying oauth2.Config.
 func WithConfig(config oauth2.Config) Option {
 	return func(c *Client) error {
@@ -82,7 +84,29 @@ func WithConfig(config oauth2.Config) Option {
 		return nil
 	}
 }
+// WithAPICredentials provides the client api credentials for the application.
+func WithClientCredentials(clientID, clientSecret string) Option {
+	return func(c *Client) error {
+		c.config.ClientID = clientID
+		c.config.ClientSecret = clientSecret
+		return nil
+	}
+}
 
+{{if .Endpoint}}
+// WithAutoRefresh refreshes access tokens automatically.
+// The order of this option matters because it is dependent on the client's
+// config and token. Use this option after With*Credentials.
+func WithAutoRefresh(ctx context.Context) Option {
+	return func(c *Client) error {
+		c.client = c.config.Client(ctx, &c.token)
+		return nil
+	}
+}
+{{end}}
+{{end}}
+
+{{if .Token}}
 // WithToken sets the underlying oauth2.Token.
 func WithToken(token oauth2.Token) Option {
 	return func(c *Client) error {
@@ -100,30 +124,9 @@ func WithTokenCredentials(accessToken, refreshToken string, expiry time.Time) Op
 		return nil
 	}
 }
-
-// WithAPICredentials provides the client api credentials for the application.
-func WithClientCredentials(clientID, clientSecret string) Option {
-	return func(c *Client) error {
-		c.config.ClientID = clientID
-		c.config.ClientSecret = clientSecret
-		return nil
-	}
-}
-
-{{- if .Endpoint}}
-// WithAutoRefresh refreshes access tokens automatically.
-// The order of this option matters because it is dependent on the client's
-// config and token. Use this option after With*Credentials.
-func WithAutoRefresh(ctx context.Context) Option {
-	return func(c *Client) error {
-		c.client = c.config.Client(ctx, &c.token)
-		return nil
-	}
-}
-{{end}}
 {{end}}
 
-{{- if .RateLimiter}}
+{{if .RateLimiter}}
 // WithRateLimiter rate limits the client's api calls
 func WithRateLimiter(r *rate.Limiter) Option {
 	return func(c *Client) error {
@@ -253,9 +256,19 @@ func main() {
 		HelpName: "genwith",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
-				Name:  "auth",
+				Name:  "token",
 				Value: false,
-				Usage: "Include auth-related options",
+				Usage: "Include token-related options",
+			},
+			&cli.BoolFlag{
+				Name:  "config",
+				Value: false,
+				Usage: "Include config-related options",
+			},
+			&cli.BoolFlag{
+				Name:  "endpoint",
+				Value: false,
+				Usage: "Include oauth2.Endpoint var in config instantiation",
 			},
 			&cli.BoolFlag{
 				Name:  "do",
@@ -266,11 +279,6 @@ func main() {
 				Name:  "client",
 				Value: false,
 				Usage: "Include NewClient & options",
-			},
-			&cli.BoolFlag{
-				Name:  "endpoint",
-				Value: false,
-				Usage: "Include oauth2.Endpoint var in config instantiation (--auth must also be enabled)",
 			},
 			&cli.BoolFlag{
 				Name:  "ratelimit",
@@ -285,8 +293,8 @@ func main() {
 			},
 		},
 		Before: func(c *cli.Context) error {
-			if c.Bool("endpoint") && !c.Bool("auth") {
-				return errors.New("`endpoint` enabled without `auth`")
+			if c.Bool("endpoint") && !c.Bool("config") {
+				log.Error().Msg("--endpoint without --config")
 			}
 			return nil
 		},
@@ -299,9 +307,10 @@ func main() {
 		Action: func(c *cli.Context) error {
 			w := with{
 				Do:          c.Bool("do"),
-				Auth:        c.Bool("auth"),
-				Client:      c.Bool("client"),
+				Token:       c.Bool("token"),
+				Config:      c.Bool("config"),
 				Endpoint:    c.Bool("endpoint"),
+				Client:      c.Bool("client"),
 				RateLimiter: c.Bool("ratelimit"),
 				Flags:       strings.Join(os.Args[1:], " "),
 				Package:     c.String("package")}
