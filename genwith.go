@@ -55,16 +55,16 @@ type Option func(*Client) error
 func NewClient(opts ...Option) (*Client, error) {
 	c := &Client{
 		client: &http.Client{},
-	{{if .Token}}
-		token:  oauth2.Token{},
-	{{end}}
-	{{if .Config}}
+	{{- if .Token}}
+		token:  &oauth2.Token{},
+	{{- end}}
+	{{- if .Config}}
 		config: oauth2.Config{
-	{{if .Endpoint}}
+	{{- if .Endpoint}}
 			Endpoint: Endpoint,
-	{{end}}
+	{{- end}}
 		},
-	{{end}}
+	{{- end}}
 	}
 	opts = append(opts, withServices())
 	for _, opt := range opts {
@@ -99,7 +99,7 @@ func WithClientCredentials(clientID, clientSecret string) Option {
 // config and token. Use this option after With*Credentials.
 func WithAutoRefresh(ctx context.Context) Option {
 	return func(c *Client) error {
-		c.client = c.config.Client(ctx, &c.token)
+		c.client = c.config.Client(ctx, c.token)
 		return nil
 	}
 }
@@ -108,7 +108,7 @@ func WithAutoRefresh(ctx context.Context) Option {
 
 {{if .Token}}
 // WithToken sets the underlying oauth2.Token.
-func WithToken(token oauth2.Token) Option {
+func WithToken(token *oauth2.Token) Option {
 	return func(c *Client) error {
 		c.token = token
 		return nil
