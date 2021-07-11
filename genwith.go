@@ -24,6 +24,7 @@ type with struct {
 	RateLimiter bool
 	Flags       string
 	Package     string
+	Decoder     string
 }
 
 const (
@@ -33,6 +34,7 @@ package {{.Package}}
 
 import (
 	"context"
+	"encoding/xml"
 	"encoding/json"
 	"errors"
 	"github.com/bzimmer/httpwares"
@@ -202,7 +204,7 @@ func (c *Client) do(req *http.Request, v interface{}) error {
 	}
 
 	if obj != nil {
-		err := json.NewDecoder(res.Body).Decode(obj)
+		err := {{.Decoder}}.NewDecoder(res.Body).Decode(obj)
 		if err == io.EOF {
 			err = nil // ignore EOF errors caused by empty response body
 		}
@@ -291,6 +293,11 @@ func main() {
 				Required: true,
 				Usage:    "The name of the package for generation",
 			},
+			&cli.StringFlag{
+				Name:  "decoder",
+				Value: "json",
+				Usage: "The decoder to use",
+			},
 		},
 		Before: func(c *cli.Context) error {
 			if c.Bool("endpoint") && !c.Bool("config") {
@@ -313,7 +320,8 @@ func main() {
 				Client:      c.Bool("client"),
 				RateLimiter: c.Bool("ratelimit"),
 				Flags:       strings.Join(os.Args[1:], " "),
-				Package:     c.String("package")}
+				Package:     c.String("package"),
+				Decoder:     c.String("decoder")}
 			file := fmt.Sprintf("%s_with.go", c.String("package"))
 			if err := generate(w, file, q); err != nil {
 				return err
