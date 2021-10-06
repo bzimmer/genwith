@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -246,7 +245,7 @@ func generate(w with, file, tmpl string) error {
 		log.Error().Err(err).Msg("executing template")
 		return err
 	}
-	if err := ioutil.WriteFile(file, src.Bytes(), 0600); err != nil {
+	if err := os.WriteFile(file, src.Bytes(), 0600); err != nil {
 		return err
 	}
 	return nil
@@ -255,6 +254,7 @@ func generate(w with, file, tmpl string) error {
 func main() {
 	app := &cli.App{
 		Name:     "genwith",
+		Usage:    "Generate new functional option clients",
 		HelpName: "genwith",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
@@ -332,8 +332,7 @@ func main() {
 			return nil
 		},
 	}
-	ctx := context.Background()
-	if err := app.RunContext(ctx, os.Args); err != nil {
+	if err := app.RunContext(context.Background(), os.Args); err != nil {
 		os.Exit(1)
 	}
 	os.Exit(0)
