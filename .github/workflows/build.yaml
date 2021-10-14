@@ -5,7 +5,8 @@ jobs:
     strategy:
       matrix:
         go-version: [1.17.x]
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # only run on ubuntu because mac and windows continually exceed API limits
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Restore cache
@@ -25,4 +26,5 @@ jobs:
         uses: arduino/setup-task@v1
       - name: Test
         run: task test
-        if: matrix.os == 'ubuntu-latest'
+      - name: Build
+        run: task build
