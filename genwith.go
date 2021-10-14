@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,15 +16,16 @@ import (
 )
 
 type with struct {
-	Do          bool
-	Token       bool
-	Config      bool
-	Endpoint    bool
-	Client      bool
-	RateLimiter bool
-	Flags       string
-	Package     string
-	Decoder     string
+	Do           bool
+	Token        bool
+	Config       bool
+	Endpoint     bool
+	EndpointFunc bool
+	Client       bool
+	RateLimiter  bool
+	Flags        string
+	Package      string
+	Decoder      string
 }
 
 const (
@@ -61,6 +63,9 @@ func NewClient(opts ...Option) (*Client, error) {
 	{{- end}}
 	{{- if .Config}}
 		config: oauth2.Config{
+	{{- if .EndpointFunc}}
+			Endpoint: Endpoint(),
+	{{- end}}
 	{{- if .Endpoint}}
 			Endpoint: Endpoint,
 	{{- end}}
@@ -94,7 +99,7 @@ func WithClientCredentials(clientID, clientSecret string) Option {
 	}
 }
 
-{{if .Endpoint}}
+{{if or .Endpoint .EndpointFunc}}
 // WithAutoRefresh refreshes access tokens automatically.
 // The order of this option matters because it is dependent on the client's
 // config and token. Use this option after With*Credentials.
@@ -273,6 +278,11 @@ func main() {
 				Usage: "Include oauth2.Endpoint var in config instantiation",
 			},
 			&cli.BoolFlag{
+				Name:  "endpoint-func",
+				Value: false,
+				Usage: "Include oauth2.Endpoint func in config instantiation",
+			},
+			&cli.BoolFlag{
 				Name:  "do",
 				Value: false,
 				Usage: "Include client.do function",
@@ -300,8 +310,13 @@ func main() {
 			},
 		},
 		Before: func(c *cli.Context) error {
-			if c.Bool("endpoint") && !c.Bool("config") {
-				log.Error().Msg("--endpoint without --config")
+			if c.Bool("endpoint") && c.Bool("endpoint-func") {
+				return errors.New("only one of --endpoint or --endpoint-func allowed")
+			}
+			if c.Bool("endpoint") || c.Bool("endpoint-func") {
+				if !c.Bool("config") {
+					return errors.New("--endpoint or --endpoint-func requires --config")
+				}
 			}
 			return nil
 		},
@@ -313,15 +328,16 @@ func main() {
 		},
 		Action: func(c *cli.Context) error {
 			w := with{
-				Do:          c.Bool("do"),
-				Token:       c.Bool("token"),
-				Config:      c.Bool("config"),
-				Endpoint:    c.Bool("endpoint"),
-				Client:      c.Bool("client"),
-				RateLimiter: c.Bool("ratelimit"),
-				Flags:       strings.Join(os.Args[1:], " "),
-				Package:     c.String("package"),
-				Decoder:     c.String("decoder")}
+				Do:           c.Bool("do"),
+				Token:        c.Bool("token"),
+				Config:       c.Bool("config"),
+				Endpoint:     c.Bool("endpoint"),
+				EndpointFunc: c.Bool("endpoint-func"),
+				Client:       c.Bool("client"),
+				RateLimiter:  c.Bool("ratelimit"),
+				Flags:        strings.Join(os.Args[1:], " "),
+				Package:      c.String("package"),
+				Decoder:      c.String("decoder")}
 			file := fmt.Sprintf("%s_with.go", c.String("package"))
 			if err := generate(w, file, q); err != nil {
 				return err
