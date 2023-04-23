@@ -1,56 +1,21 @@
-# https://taskfile.dev
-
 version: '3'
 
-vars:
-  CWD:
-    sh: git rev-parse --show-toplevel
-  APP:
-    sh: basename $PWD
-  PKG:
-    github.com/bzimmer/{{.APP}}
-  DIST:
-    "{{.CWD}}/dist"
-  GO_PACKAGES:
-    sh: go list ./...
+includes:
+  build: ./Taskfile-build.yml
+
+dotenv: [".clean.env"]
 
 tasks:
   default:
     cmds:
-      - task: build
-
-  clean:
-    desc: Remove build artifacts
-    cmds:
-      - rm -rf {{.DIST}}
+      - task -l
 
   build:
     desc: Build all binaries
     cmds:
-      - go build -o {{.DIST}}/{{.APP}} {{.APP}}.go
-
-  install:
-    desc: Install {{.APP}}
-    deps: []
-    cmds:
-      - task: build
-        vars:
-          DIST:
-            sh: echo $GOPATH/bin
-
-  lint:
-    desc: Runs golint
-    cmds:
-      - golangci-lint -v run
-      - go vet {{catLines .GO_PACKAGES}}
-
-  snapshot:
-    desc: Build a snapshot
-    cmds:
-      - goreleaser release --snapshot --rm-dist
+      - task: build:build
 
   test:
-    desc: Run tests
+    desc: Run all tests
     cmds:
-      - mkdir -p {{.DIST}}
-      - go test -count=1 -race -covermode atomic -coverprofile {{.DIST}}/coverage.txt ./...
+      - task: build:test
