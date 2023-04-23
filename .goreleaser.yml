@@ -8,7 +8,7 @@ builds:
       - linux
       - windows
       - darwin
-    main: ./genwith.go
+    main: ./cmd/genwith
 checksum:
   name_template: 'checksums.txt'
 snapshot:
