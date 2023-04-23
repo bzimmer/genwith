@@ -263,10 +263,7 @@ func generate(w with, file, tmpl string) error {
 		log.Error().Err(err).Msg("executing template")
 		return err
 	}
-	if err := os.WriteFile(file, src.Bytes(), 0600); err != nil {
-		return err
-	}
-	return nil
+	return os.WriteFile(file, src.Bytes(), 0600)
 }
 
 func main() {
@@ -355,10 +352,7 @@ func main() {
 			if err := generate(w, file, q); err != nil {
 				return err
 			}
-			if err := format(c.Context, file); err != nil {
-				return err
-			}
-			return nil
+			return format(c.Context, file)
 		},
 	}
 	if err := app.RunContext(context.Background(), os.Args); err != nil {
